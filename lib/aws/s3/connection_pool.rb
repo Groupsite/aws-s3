@@ -1,6 +1,12 @@
 module AWS
   module S3
     class ConnectionPool
+      MAX_CONNECTION_WAIT = 5.0 # seconds
+      CONNECTION_WAIT = 0.25 # seconds
+      MAX_CONNECTION_ATTEMPTS = MAX_CONNECTION_WAIT / CONNECTION_WAIT
+
+      class ConnectionUnavailable < StandardError; end
+
       cattr_accessor :mutex
       self.mutex = Mutex.new
 
@@ -34,14 +40,24 @@ module AWS
         connection
       end
 
-      def checkout
+      def get_connection
         ConnectionPool.mutex.synchronize do
           if @available_connections.empty?
-            new_connection
+            new_connection if @connections.size < pool_size
           else
             @available_connections.shift
           end
         end
+      end
+
+      def checkout
+        attempts = MAX_CONNECTION_ATTEMPTS
+        until (connection = get_connection) || attempts == 0
+          attempts -= 1
+          sleep(CONNECTION_WAIT)
+        end
+        raise ConnectionUnavailable, "Could not get connection from pool size of #{pool_size} in #{MAX_CONNECTION_WAIT} seconds." unless connection
+        connection
       end
 
       def checkin(connection)
