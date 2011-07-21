@@ -25,6 +25,7 @@ require 's3/object'
 require 's3/error'
 require 's3/exceptions'
 require 's3/connection'
+require 's3/connection_pool'
 require 's3/authentication'
 require 's3/response'
 
@@ -53,7 +54,7 @@ AWS::S3::Parsing.parser =
     # have to use a version greater than '0.3.8.2'.
     raise LoadError unless XML::Parser::VERSION > '0.3.8.2'
     $:.push(File.join(File.dirname(__FILE__), '..', '..', 'support', 'faster-xml-simple', 'lib'))
-    require_library_or_gem 'faster_xml_simple' 
+    require_library_or_gem 'faster_xml_simple'
     FasterXmlSimple
   rescue LoadError
     XmlSimple

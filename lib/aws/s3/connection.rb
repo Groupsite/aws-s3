@@ -148,8 +148,7 @@ module AWS
 
       module Management #:nodoc:
         def self.included(base)
-          base.cattr_accessor :connections
-          base.connections = {}
+          base.cattr_accessor :connection_pool
           base.extend ClassMethods
         end
 
@@ -198,39 +197,23 @@ module AWS
           def establish_connection!(options = {})
             # After you've already established the default connection, just specify
             # the difference for subsequent connections
-            options = default_connection.options.merge(options) if connected?
-            connections[connection_name] = Connection.connect(options)
-          end
-
-          # Returns the connection for the current class, or Base's default connection if the current class does not
-          # have its own connection.
-          #
-          # If not connection has been established yet, NoConnectionEstablished will be raised.
-          def connection
-            if connected?
-              connections[connection_name] || default_connection
-            else
-              raise NoConnectionEstablished
-            end
+            self.connection_pool = ConnectionPool.new(options)
           end
 
           # Returns true if a connection has been made yet.
           def connected?
-            !connections.empty?
+            connection_pool && connection_pool.connected?
           end
 
           # Removes the connection for the current class. If there is no connection for the current class, the default
           # connection will be removed.
           def disconnect(name = connection_name)
-            name       = default_connection unless connections.has_key?(name)
-            connection = connections[name]
-            connection.http.finish if connection.persistent?
-            connections.delete(name)
+            disconnect!
           end
 
           # Clears *all* connections, from all classes, with prejudice.
           def disconnect!
-            connections.each_key {|connection| disconnect(connection)}
+            connection_pool.disconnect
           end
 
           private
@@ -238,13 +221,6 @@ module AWS
               name
             end
 
-            def default_connection_name
-              'AWS::S3::Base'
-            end
-
-            def default_connection
-              connections[default_connection_name]
-            end
         end
       end
 
